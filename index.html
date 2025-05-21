@@ -1,0 +1,108 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Recent Followers</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      background: transparent;
+      font-family: 'Montserrat', sans-serif;
+      overflow: hidden;
+    }
+    .panel {
+      background: linear-gradient(135deg, #9146FF, #5c2aa5);
+      border: 2px solid #fff;
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: #fff;
+      box-shadow: 0 0 12px #0008;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      border-bottom: 1px solid #ffffff33;
+      padding-bottom: 4px;
+    }
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .follower {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      animation: slideIn 0.3s ease-out;
+    }
+    .icon {
+      width: 16px;
+      height: 16px;
+      background: url('https://static.thenounproject.com/png/3322760-200.png') no-repeat center;
+      background-size: contain;
+      filter: invert(1);
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-15px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="title">Recent Followers</div>
+    <div id="followerList" class="list"></div>
+  </div>
+
+  <script>
+    const TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6IjNENjJFNDY5NTA5OUI3OEU0RjBBQjczNDU5NTAyOUVBRjdBQTYzQUExN0VENDAzMEY4RkI5NEJBNjhBNTMxNkYwNjlDRUI3MjM2RUQ2RjM1OEVEMzRGRTkzRDM1Njc1MkY0NTIyOTA0QzFGNTFFOTk1RkFBMzBBQUI4QTMyMUNCODMzMDA5Q0E3NUU3RTlBRDM2RjQyNEE5MkU3QjI2NTFEOUEyRkQzQzMzQUNCOTFDNzBERUI4NTJCOEQ5RDI2MTU1QUM5RDQwMzA3QzIwMTIzQzc4NzA1QzRCQkE5MTNDQjM4OTk3MjU4NzRBM0I2MEE2RDBERjU0RTUiLCJyZWFkX29ubHkiOnRydWUsInByZXZlbnRfbWFzdGVyIjp0cnVlLCJ0d2l0Y2hfaWQiOiIxMzA1MTAyOTY5Iiwic3RyZWFtbGFic19pZCI6IjczMjc4OTkwMTY2MTA0NDczNjAiLCJ0d2l0dGVyX2lkIjoiMTkxNzM0Njc0NTM3MTAyNTQwOCIsInlvdXR1YmVfaWQiOiJVQ1hROE9BSUk2dmZWNXpVVHp6SnhoN2ciLCJ0aWt0b2tfaWQiOiIyOGNjMmNhZS1lYzRmLTVkM2MtODY3OC02OTgxMGQyM2FiMzgiLCJmYWNlYm9va19pZCI6IjEwMjM2NTAyNzE5NTc2MTQyIiwidHJvdm9faWQiOiIxMTY5MzU1NzYiLCJraWNrX2lkIjoiNjI4OTQzMzAifQ.tJHo2DmViF723SuaY0zczmFC5NXvnX_mHMiKNXxKYj8";
+    const MAX = 5;
+    const listEl = document.getElementById("followerList");
+    const queue = [];
+
+    function render() {
+      listEl.innerHTML = "";
+      queue.slice(0, MAX).forEach(name => {
+        const div = document.createElement("div");
+        div.className = "follower";
+        div.innerHTML = `<div class="icon"></div><span>${name}</span>`;
+        listEl.appendChild(div);
+      });
+    }
+
+    async function fetchRecentFollowers() {
+      const res = await fetch(`https://streamlabs.com/api/v1.0/events?access_token=${TOKEN}&limit=5`);
+      const data = await res.json();
+      const follows = (data.events || [])
+        .filter(e => e.type === "follow")
+        .map(e => e.message[0]?.name)
+        .filter(Boolean);
+      queue.push(...follows.reverse());
+      render();
+    }
+
+    function initSocket() {
+      const socket = io(`https://sockets.streamlabs.com?token=${TOKEN}`, { transports: ["websocket"] });
+      socket.on("connect", () => console.log("Connected to Streamlabs socket"));
+      socket.on("event", data => {
+        if (data.type !== "follow") return;
+        const name = data.message?.[0]?.name;
+        if (!name) return;
+        queue.unshift(name);
+        if (queue.length > MAX) queue.pop();
+        render();
+      });
+    }
+
+    fetchRecentFollowers();
+    initSocket();
+  </script>
+</body>
+</html>
